@@ -17,27 +17,31 @@ from tqqq_backtest import load
 BASE = dict(b1=33.5, b2=29.5, ex=40.0)
 
 
-def run(df: pd.DataFrame, b1: float, b2: float, ex: float) -> pd.DataFrame:
+def run(df: pd.DataFrame, b1: float, b2: float, ex: float, w1: float = 0.5) -> pd.DataFrame:
+    """w1: 1차 매수 비중 (2차 = 1 - w1). ret은 투입금 대비, ret_cap은 총자본(=1) 대비."""
+    w2 = 1 - w1
     close, rsi, idx = df["close"].values, df["rsi"].values, df.index
     out, pos = [], None
     for i in range(len(df)):
         if pos is None:
             if rsi[i] <= b1:
-                pos = dict(cash=0.5, sh=0.5 / close[i], t2=False, i0=i, mae=0.0)
+                pos = dict(cash=w1, sh=w1 / close[i], t2=False, i0=i, mae=0.0)
                 if rsi[i] <= b2:
-                    pos["cash"] += 0.5
-                    pos["sh"] += 0.5 / close[i]
+                    pos["cash"] += w2
+                    pos["sh"] += w2 / close[i]
                     pos["t2"] = True
             continue
         if not pos["t2"] and rsi[i] <= b2:
-            pos["cash"] += 0.5
-            pos["sh"] += 0.5 / close[i]
+            pos["cash"] += w2
+            pos["sh"] += w2 / close[i]
             pos["t2"] = True
         avg = pos["cash"] / pos["sh"]
         pos["mae"] = min(pos["mae"], close[i] / avg - 1)
         if rsi[i] >= ex:
             out.append(dict(entry=idx[pos["i0"]], ret=close[i] / avg - 1,
-                            hold=i - pos["i0"], mae=pos["mae"]))
+                            ret_cap=pos["sh"] * close[i] - pos["cash"],
+                            hold=i - pos["i0"], mae=pos["mae"], deployed=pos["cash"],
+                            two=pos["t2"]))
             pos = None
     return pd.DataFrame(out)
 
