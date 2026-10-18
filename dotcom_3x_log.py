@@ -13,7 +13,7 @@ L = 3
 START, END = "2000-03-01", "2002-12-31"
 
 
-def log_trades(df: pd.DataFrame) -> pd.DataFrame:
+def log_trades(df: pd.DataFrame, profit_only: bool = False) -> pd.DataFrame:
     o, lo, c, rsi, idx = df["Open"].values, df["Low"].values, df["Close"].values, df["rsi"].values, df.index
     rows, pos = [], None
 
@@ -42,7 +42,7 @@ def log_trades(df: pd.DataFrame) -> pd.DataFrame:
             add(pos, c[i], 0.5, i); pos["t2"] = (idx[i], c[i], rsi[i])
             a = pos["N"] / pos["u"]
             p_liq = a * (1 - 1 / L) / (1 - MM)
-        if rsi[i] >= EX:
+        if rsi[i] >= EX and (not profit_only or c[i] > a):
             pnl = pos["u"] * (c[i] - a)
             rows.append(finish(pos, idx[i], c[i], a, p_liq, pnl, i, "RSI≥40 매도"))
             pos = None
