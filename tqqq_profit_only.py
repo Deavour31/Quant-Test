@@ -9,7 +9,7 @@ import pandas as pd
 from tqqq_levtoken import B1, B2, EX, MM, build
 
 
-def run(df, L, profit_only):
+def run(df, L, profit_only, stop=None):
     o, lo, c, rsi = (df[k].values for k in ("Open", "Low", "Close", "rsi"))
     idx = df.index
     out, pos = [], None
@@ -32,26 +32,31 @@ def run(df, L, profit_only):
         if lo[i] <= p_liq:
             fill = min(p_liq, o[i])
             out.append(dict(entry=idx[pos["i0"]], pnl=max(pos["u"] * (fill - a), -pos["M"]),
-                            hold=i - pos["i0"], mae=pos["mae"], liq=True, open=False))
+                            hold=i - pos["i0"], mae=pos["mae"], liq=True, open=False, stopped=False))
             pos = None
             continue
         if not pos["t2"] and rsi[i] <= B2:
             add(pos, c[i], 0.5); pos["t2"] = True
             a = pos["N"] / pos["u"]
+        if stop is not None and c[i] / a - 1 <= stop:   # 평단 대비 지수 하락률 손절 (종가)
+            out.append(dict(entry=idx[pos["i0"]], pnl=pos["u"] * (c[i] - a), hold=i - pos["i0"],
+                            mae=pos["mae"], liq=False, open=False, stopped=True))
+            pos = None
+            continue
         if rsi[i] >= EX and (not profit_only or c[i] > a):
             out.append(dict(entry=idx[pos["i0"]], pnl=pos["u"] * (c[i] - a), hold=i - pos["i0"],
-                            mae=pos["mae"], liq=False, open=False))
+                            mae=pos["mae"], liq=False, open=False, stopped=False))
             pos = None
     if pos is not None:
         a = pos["N"] / pos["u"]
         out.append(dict(entry=idx[pos["i0"]], pnl=max(pos["u"] * (c[-1] - a), -pos["M"]),
-                        hold=len(df) - 1 - pos["i0"], mae=pos["mae"], liq=False, open=True))
+                        hold=len(df) - 1 - pos["i0"], mae=pos["mae"], liq=False, open=True, stopped=False))
     return pd.DataFrame(out)
 
 
 def summ(name, L, t):
     eq = (1 + t.pnl).prod()
-    return dict(rule=name, L=f"{L}x", n=len(t), liq=int(t.liq.sum()), open=int(t.open.sum()),
+    return dict(rule=name, L=f"{L}x", n=len(t), liq=int(t.liq.sum()), stops=int(t.stopped.sum()), open=int(t.open.sum()),
                 win=(t.pnl > 0).mean() * 100, avg_hold=t.hold.mean(), max_hold=int(t.hold.max()),
                 worst_mae=t.mae.min() * 100, worst_pnl=t.pnl.min() * 100, compound_x=eq)
 
