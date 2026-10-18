@@ -1,8 +1,10 @@
-"""본체가 횡보하는 경우: 삼성전자(005930.KS) 70% + 이 전략 30% (2017-01 ~ 2024-12)
+"""본체가 횡보하는 경우: 삼성전자(005930.KS) 70% + 이 전략 30% (2017-01 ~ END, 기본 2024-12-31)
 
 전략은 원화 현금으로 TQQQ를 사고 원화로 평가한다(환율 반영, 대기 중 현금은 KRW). 신호는 TQQQ(USD) RSI.
 비중 고정(재조정 없음), 현금 이자 0%. 비교: 본체 100% / 70%+현금 30% / 70%+전략 30%.
 """
+
+import sys
 
 import matplotlib
 
@@ -15,7 +17,8 @@ from tqqq_backtest import rsi_wilder
 from tqqq_chart import START, simulate
 from tqqq_portfolio import W_CORE, W_SLEEVE, stats, top_drawdowns
 
-END = "2024-12-31"
+END = sys.argv[1] if len(sys.argv) > 1 else "2024-12-31"   # 예: python tqqq_portfolio_samsung.py 2026-12-31
+OUT = "tqqq_portfolio_samsung.png" if END == "2024-12-31" else f"tqqq_portfolio_samsung_{END[:4]}.png"
 
 
 def px(t: str) -> pd.Series:
@@ -84,8 +87,8 @@ def main() -> None:
     for lab, eq, col in (("100% Samsung", core, "gray"), ("70/30 cash", cash, "#4575b4"), ("70/30 strategy", port, "#d73027")):
         ax[2].plot(eq.index, (eq / eq.cummax() - 1) * 100, color=col, lw=1.0, label=lab)
     ax[2].set_ylabel("Drawdown %"); ax[2].legend(loc="lower left"); ax[2].grid(alpha=0.3)
-    fig.savefig("tqqq_portfolio_samsung.png", dpi=120)
-    print("\n저장: tqqq_portfolio_samsung.png")
+    fig.savefig(OUT, dpi=120)
+    print(f"\n저장: {OUT}")
 
 
 if __name__ == "__main__":
